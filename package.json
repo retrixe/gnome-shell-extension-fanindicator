@@ -1,0 +1,33 @@
+{
+  "name": "gnome-shell-extension-fanindicator",
+  "version": "1.0.0",
+  "description": "Displays an indicator if system fans are activated while the system is in \"Power Saver\" mode.",
+  "keywords": [
+    "fans",
+    "gnome",
+    "gnome-extension",
+    "gnome-shell",
+    "system"
+  ],
+  "homepage": "https://github.com/retrixe/gnome-shell-extension-fanindicator#readme",
+  "bugs": {
+    "url": "https://github.com/retrixe/gnome-shell-extension-fanindicator/issues"
+  },
+  "license": "GPL-2.0-or-later",
+  "author": "Ibrahim Ansari <contact@retrixe.xyz>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/retrixe/gnome-shell-extension-fanindicator.git"
+  },
+  "main": "extension.js",
+  "scripts": {
+    "lint": "oxfmt --check",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "oxfmt": "^0.44.0",
+    "typescript": "^6.0.2"
+  },
+  "packageManager": "yarn@4.4.1"
+}

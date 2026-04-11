@@ -1,0 +1,6 @@
+{
+  "name": "Fan Indicator",
+  "description": "Displays an indicator if system fans are activated while the system is in \"Power Saver\" mode.",
+  "uuid": "fanindicator@retrixe.xyz",
+  "shell-version": ["49", "50"]
+}
