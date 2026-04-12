@@ -7,6 +7,7 @@
     "gnome",
     "gnome-extension",
     "gnome-shell",
+    "gnome-shell-extension",
     "system"
   ],
   "homepage": "https://github.com/retrixe/gnome-shell-extension-fanindicator#readme",
