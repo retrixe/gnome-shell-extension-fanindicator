@@ -21,6 +21,7 @@
   },
   "main": "extension.js",
   "scripts": {
+    "dev": "dbus-run-session gnome-shell --devkit --wayland",
     "lint": "oxfmt --check",
     "prepare": "husky"
   },

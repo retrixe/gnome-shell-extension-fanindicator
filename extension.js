@@ -16,6 +16,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+import Gio from 'gi://Gio'
 import GLib from 'gi://GLib'
 import GObject from 'gi://GObject'
 import St from 'gi://St'
@@ -23,6 +24,7 @@ import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js'
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js'
+import { Indicator as PowerProfilesIndicator } from 'resource:///org/gnome/shell/ui/status/powerProfiles.js'
 
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
@@ -32,6 +34,7 @@ const Indicator = GObject.registerClass(
       //Adwaita/symbolic/status/dialog-warning-symbolic.svg
       //Adwaita/symbolic/status/power-profile-performance-symbolic.svg
       //Adwaita/symbolic/actions/object-rotate-right-symbolic.svg
+      // FIXME: Something to do with fire or heat too perhaps?
       this.add_child(
         new St.Icon({
           icon_name: 'power-profile-performance-symbolic',
@@ -39,19 +42,24 @@ const Indicator = GObject.registerClass(
         }),
       )
 
-      let item = new PopupMenu.PopupMenuItem(_('Fan Speed: ' + 10000 + ' RPM'))
-      /*item.connect('activate', () => {
+      /*FIXME: let item = new PopupMenu.PopupMenuItem(_('Fan Speed: ' + 10000 + ' RPM'))
+      item.connect('activate', () => {
             Main.notify(_('Whatʼs up, folks?'));
-        });*/
-      this.menu.addMenuItem(item)
+        });
+      this.menu.addMenuItem(item)*/
     }
   },
 )
 
 export default class FanIndicatorExtension extends Extension {
+  #indicator = null
+  #sensorsPath = null
+  #interval = null
+
+  // TODO: More efficient way of doing this?
   #showIndicator() {
-    this._indicator = new Indicator()
-    Main.panel.addToStatusArea(this.uuid, this._indicator)
+    this.#indicator = new Indicator()
+    Main.panel.addToStatusArea(this.uuid, this.#indicator)
   }
 
   #hideIndicator() {
@@ -59,56 +67,105 @@ export default class FanIndicatorExtension extends Extension {
     this.#indicator = null
   }
 
-  #retrieveFanSpeeds() {
-    // Execute sensors command and filter by consecutive newlines,
-    // then take the first line, then filter RPMs, then remove any without RPM
-    // Parse into an object et voila
-  }
-
-  #retrievePowerProfile() {
-    // TODO: Maybe we can hook into the quick settings?
-  }
-
-  #pollFunction() {
-    // TODO: If any fan is over 0 RPM
-    // - Add the indicator if it's not there
-    // - Update fan speeds inside the indicator
-    // Else remove it
-  }
-
-  #execute() {
+  #executeCommand(...argv) {
     return new Promise((resolve, reject) => {
       const proc = Gio.Subprocess.new(
-        this._argv,
+        argv,
         Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
       )
 
       proc.communicate_utf8_async(null, null, (proc, result) => {
         try {
           let [, stdout, stderr] = proc.communicate_utf8_finish(result)
-
-          this._output = stdout ? stdout.split('\n') : []
-          this._error_output = stderr ? stderr.split('\n') : []
+          resolve([stdout, stderr])
         } catch (e) {
-          logError(e)
-        } finally {
-          callback()
-          this._updated = true
+          reject(e)
         }
       })
     })
   }
 
-  enable() {
-    // TODO: Complete metadata.json
-    this.#sensorsPath = GLib.find_program_in_path('sensors')
-    this.#interval = setInterval(this.#pollFunction, 1000)
+  async #retrieveFanSpeeds() {
+    // Execute sensors command
+    const [sensorsOutput, sensorsError] = await this.#executeCommand(this.#sensorsPath, '-j')
+    if (sensorsError.trim()) {
+      throw new Error('error executing sensors command: ' + sensorsError.trim())
+    }
 
-    showIndicator()
+    // Parse output
+    const sensorGroups = JSON.parse(sensorsOutput)
+    const fanGroups = {}
+
+    // Filter down to fans only
+    for (const sensorGroupName in sensorGroups) {
+      const sensorGroup = sensorGroups[sensorGroupName]
+      const fans = {}
+      for (const sensorName in sensorGroup) {
+        if (sensorName === 'Adapter') continue
+        const sensor = sensorGroup[sensorName]
+
+        // Find the sensor's fan input parameter
+        for (const parameterName in sensor) {
+          if (parameterName.match(/fan\d+_input/)) {
+            fans[sensorName] = sensor[parameterName]
+            break
+          }
+        }
+      }
+
+      // If there are fans in this sensor group, add it to fan groups
+      if (Object.keys(fans).length > 0) {
+        fanGroups[sensorGroupName] = fans
+      }
+    }
+    return fanGroups
+  }
+
+  #retrievePowerProfile() {
+    const powerProfilesIndicator = Main.panel.statusArea.quickSettings._powerProfiles
+    const [powerProfilesToggle] = powerProfilesIndicator.quickSettingsItems
+    // TODO: Does this actually improve performance?
+    return powerProfilesToggle._proxy.ActiveProfile
+  }
+
+  async #pollFunction() {
+    // Skip polling if we're not in power saver and ensure to hide indicator
+    const powerProfile = this.#retrievePowerProfile()
+    if (powerProfile !== 'power-saver') {
+      if (this.#indicator) this.#hideIndicator()
+      return
+    }
+
+    const fanGroups = await this.#retrieveFanSpeeds()
+    // If any fan is over 0 RPM
+    for (const fanGroupName in fanGroups) {
+      const fanGroup = fanGroups[fanGroupName]
+      for (const fan in fanGroup) {
+        if (fanGroup[fan] > 0) {
+          // Add the indicator if it's not there
+          if (!this.#indicator) this.#showIndicator()
+          // FIXME: Update fan speeds inside the indicator
+          return
+        }
+      }
+    }
+
+    // Else remove it
+    if (this.#indicator) this.#hideIndicator()
+  }
+
+  enable() {
+    // FIXME: Complete metadata.json
+    this.#sensorsPath = GLib.find_program_in_path('sensors')
+    this.#interval = setInterval(() => {
+      this.#pollFunction().catch(console.error)
+    }, 1000)
+
+    this.#showIndicator()
   }
 
   disable() {
     clearInterval(this.#interval)
-    hideIndicator()
+    this.#hideIndicator()
   }
 }
