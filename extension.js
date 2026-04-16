@@ -24,7 +24,6 @@ import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/
 import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js'
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js'
-import { Indicator as PowerProfilesIndicator } from 'resource:///org/gnome/shell/ui/status/powerProfiles.js'
 
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
@@ -41,12 +40,26 @@ const Indicator = GObject.registerClass(
           style_class: 'system-status-icon',
         }),
       )
+    }
 
-      /*FIXME: let item = new PopupMenu.PopupMenuItem(_('Fan Speed: ' + 10000 + ' RPM'))
-      item.connect('activate', () => {
-            Main.notify(_('Whatʼs up, folks?'));
-        });
-      this.menu.addMenuItem(item)*/
+    updateFans(fanGroups) {
+      this.menu.removeAll() // FIXME: Diff against the existing menu and only update changed items
+
+      for (const fanGroup in fanGroups) {
+        const fans = fanGroups[fanGroup]
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(fanGroup))
+
+        for (const fan in fans) {
+          const label = fan + ': ' + fans[fan] + ' rpm'
+          const menuItem = new PopupMenu.PopupImageMenuItem(
+            label,
+            'object-rotate-right-symbolic', // FIXME: Better icon
+            { activate: false /*, can_focus: false, hover: false - Does nothing */ },
+          )
+          this.menu.addMenuItem(menuItem)
+        }
+      }
     }
   },
 )
@@ -56,7 +69,7 @@ export default class FanIndicatorExtension extends Extension {
   #sensorsPath = null
   #interval = null
 
-  // TODO: More efficient way of doing this?
+  // TODO: More efficient way of doing this without recreating the indicator?
   #showIndicator() {
     this.#indicator = new Indicator()
     Main.panel.addToStatusArea(this.uuid, this.#indicator)
@@ -144,7 +157,7 @@ export default class FanIndicatorExtension extends Extension {
         if (fanGroup[fan] > 0) {
           // Add the indicator if it's not there
           if (!this.#indicator) this.#showIndicator()
-          // FIXME: Update fan speeds inside the indicator
+          this.#indicator.updateFans(fanGroups)
           return
         }
       }
@@ -160,8 +173,6 @@ export default class FanIndicatorExtension extends Extension {
     this.#interval = setInterval(() => {
       this.#pollFunction().catch(console.error)
     }, 1000)
-
-    this.#showIndicator()
   }
 
   disable() {
