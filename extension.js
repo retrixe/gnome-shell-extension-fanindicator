@@ -27,6 +27,8 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js'
 
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
+    #menuItems = {}
+
     _init() {
       super._init(0.0, _('System Fans Running'))
 
@@ -42,22 +44,54 @@ const Indicator = GObject.registerClass(
       )
     }
 
+    #arrayEquals(arr1, arr2) {
+      if (arr1.length !== arr2.length) return false
+      for (let i = 0; i < arr1.length; i++) {
+        if (arr1[i] !== arr2[i]) return false
+      }
+      return true
+    }
+
     updateFans(fanGroups) {
-      this.menu.removeAll() // FIXME: Diff against the existing menu and only update changed items
+      let recreateItems = this.#menuItems === null
+      // If there exist menu items, check if they're the same with the same order
+      if (!recreateItems) {
+        const existingKeys = Object.keys(this.#menuItems).flatMap(k => [
+          k,
+          ...Object.keys(this.#menuItems[k]),
+        ])
+        const newKeys = Object.keys(fanGroups).flatMap(k => [k, ...Object.keys(fanGroups[k])])
+        if (!this.#arrayEquals(existingKeys, newKeys)) {
+          recreateItems = true
+          this.menu.removeAll()
+        }
+      } else {
+        this.#menuItems = {} // If there's no menu items, initialize the menu items object
+      }
 
       for (const fanGroup in fanGroups) {
         const fans = fanGroups[fanGroup]
 
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(fanGroup))
+        if (recreateItems) {
+          this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(fanGroup))
+          this.#menuItems[fanGroup] = {}
+        }
 
         for (const fan in fans) {
           const label = fan + ': ' + fans[fan] + ' rpm'
-          const menuItem = new PopupMenu.PopupImageMenuItem(
-            label,
-            'object-rotate-right-symbolic', // FIXME: Better icon
-            { activate: false /*, can_focus: false, hover: false - Does nothing */ },
-          )
-          this.menu.addMenuItem(menuItem)
+          if (recreateItems) {
+            const menuItem = new PopupMenu.PopupImageMenuItem(
+              label,
+              'object-rotate-right-symbolic', // FIXME: Better icon
+              { activate: false /*, can_focus: false, hover: false - Does nothing */ },
+            )
+            this.menu.addMenuItem(menuItem)
+            this.#menuItems[fanGroup][fan] = menuItem
+          } else {
+            if (this.#menuItems[fanGroup][fan].label.text !== label) {
+              this.#menuItems[fanGroup][fan].label.text = label
+            }
+          }
         }
       }
     }
