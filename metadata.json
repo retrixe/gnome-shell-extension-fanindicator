@@ -2,5 +2,12 @@
   "name": "Fan Indicator",
   "description": "Displays an indicator if system fans are activated while the system is in \"Power Saver\" mode.",
   "uuid": "fanindicator@retrixe.xyz",
-  "shell-version": ["49", "50"]
+  "shell-version": ["49", "50"],
+  "url": "https://github.com/retrixe/gnome-shell-extension-fanindicator",
+  "session-modes": ["user", "unlock-dialog"],
+  "donations": {
+    "github": "retrixe"
+  },
+  "version": 1,
+  "version-name": "1.0.0"
 }

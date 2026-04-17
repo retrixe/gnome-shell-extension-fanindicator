@@ -202,7 +202,6 @@ export default class FanIndicatorExtension extends Extension {
   }
 
   enable() {
-    // FIXME: Complete metadata.json
     fanSpeedIcon = Gio.icon_new_for_string(
       this.path + '/icons/material-symbols/mode_fan_48dp_E3E3E3_FILL0_wght700_GRAD200_opsz48.svg',
     )
