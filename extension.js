@@ -25,6 +25,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js'
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js'
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js'
 
+let indicatorIcon = null
+let fanSpeedIcon = null
+//Adwaita/symbolic/status/dialog-warning-symbolic.svg
+//Adwaita/symbolic/status/power-profile-performance-symbolic.svg
+//Adwaita/symbolic/actions/object-rotate-right-symbolic.svg
+
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     #menuItems = {}
@@ -32,13 +38,9 @@ const Indicator = GObject.registerClass(
     _init() {
       super._init(0.0, _('System Fans Running'))
 
-      //Adwaita/symbolic/status/dialog-warning-symbolic.svg
-      //Adwaita/symbolic/status/power-profile-performance-symbolic.svg
-      //Adwaita/symbolic/actions/object-rotate-right-symbolic.svg
-      // FIXME: Something to do with fire or heat too perhaps?
       this.add_child(
         new St.Icon({
-          icon_name: 'power-profile-performance-symbolic',
+          gicon: indicatorIcon,
           style_class: 'system-status-icon',
         }),
       )
@@ -80,11 +82,9 @@ const Indicator = GObject.registerClass(
         for (const fan in fans) {
           const label = fan + ': ' + fans[fan] + ' rpm'
           if (recreateItems) {
-            const menuItem = new PopupMenu.PopupImageMenuItem(
-              label,
-              'object-rotate-right-symbolic', // FIXME: Better icon
-              { activate: false /*, can_focus: false, hover: false - Does nothing */ },
-            )
+            const menuItem = new PopupMenu.PopupImageMenuItem(label, fanSpeedIcon, {
+              activate: false /*, can_focus: false, hover: false - Does nothing */,
+            })
             this.menu.addMenuItem(menuItem)
             this.#menuItems[fanGroup][fan] = menuItem
           } else {
@@ -171,7 +171,7 @@ export default class FanIndicatorExtension extends Extension {
   #retrievePowerProfile() {
     const powerProfilesIndicator = Main.panel.statusArea.quickSettings._powerProfiles
     const [powerProfilesToggle] = powerProfilesIndicator.quickSettingsItems
-    // TODO: Does this actually improve performance?
+    // TODO: Does this actually improve performance? Or does it fetch from D-Bus every time?
     return powerProfilesToggle._proxy.ActiveProfile
   }
 
@@ -203,6 +203,13 @@ export default class FanIndicatorExtension extends Extension {
 
   enable() {
     // FIXME: Complete metadata.json
+    fanSpeedIcon = Gio.icon_new_for_string(
+      this.path + '/icons/material-symbols/mode_fan_48dp_E3E3E3_FILL0_wght700_GRAD200_opsz48.svg',
+    )
+    indicatorIcon = Gio.icon_new_for_string(
+      this.path + '/icons/material-symbols/mode_fan_2_48dp_E3E3E3_FILL1_wght700_GRAD200_opsz48.svg',
+    )
+
     this.#sensorsPath = GLib.find_program_in_path('sensors')
     this.#interval = setInterval(() => {
       this.#pollFunction().catch(console.error)
