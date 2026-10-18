@@ -37,11 +37,12 @@ const Indicator = GObject.registerClass(
 
     _init() {
       super._init(0.0, _('System Fans Running'))
+      this.add_style_class_name('fanindicator-button')
 
       this.add_child(
         new St.Icon({
           gicon: indicatorIcon,
-          style_class: 'system-status-icon',
+          style_class: 'system-status-icon fanindicator-icon',
         }),
       )
     }

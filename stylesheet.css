@@ -1,1 +1,11 @@
 /* Add your custom extension styling here */
+
+/* Slim indicator, matching AppIndicator's compact mode. */
+#panel .panel-button.fanindicator-button {
+  -natural-hpadding: 10px;
+}
+
+#panel .panel-button .system-status-icon.fanindicator-icon {
+  padding: 0;
+  margin: 0;
+}
